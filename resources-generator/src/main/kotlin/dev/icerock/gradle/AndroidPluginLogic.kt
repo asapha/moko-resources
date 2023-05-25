@@ -7,6 +7,7 @@ package dev.icerock.gradle
 import com.android.build.api.dsl.AndroidSourceSet
 import com.android.build.gradle.BaseExtension
 import dev.icerock.gradle.generator.MRGenerator
+import dev.icerock.gradle.generator.MRGeneratorContext
 import dev.icerock.gradle.generator.ResourceGeneratorFeature
 import dev.icerock.gradle.generator.android.AndroidMRGenerator
 import dev.icerock.gradle.utils.isDependsOn
@@ -43,10 +44,15 @@ internal class AndroidPluginLogic(
 
         AndroidMRGenerator(
             generatedDir = generatedDir,
-            sourceSet = androidSourceSet,
+            sourceSetName = androidSourceSet.name,
             mrSettings = mrSettings,
             generators = features.map { it.createAndroidGenerator() }
-        ).apply(project)
+        ).apply(
+            MRGeneratorContext(
+                project = project,
+                sourceSet = androidSourceSet
+            )
+        )
     }
 
     private fun setAssetsDirsRefresh() {

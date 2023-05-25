@@ -9,13 +9,14 @@ import com.squareup.kotlinpoet.KModifier
 import dev.icerock.gradle.generator.AssetsGenerator
 import dev.icerock.gradle.generator.MRGenerator
 import dev.icerock.gradle.generator.ObjectBodyExtendable
-import org.gradle.api.file.SourceDirectorySet
+import org.gradle.api.file.FileTree
 import java.io.File
 
 class JvmAssetsGenerator(
-    sourceDirectorySet: SourceDirectorySet,
+    inputFileTree: FileTree,
+    resFolders: Set<File>,
     mrSettings: MRGenerator.MRSettings
-) : AssetsGenerator(sourceDirectorySet),
+) : AssetsGenerator(inputFileTree, resFolders),
     ObjectBodyExtendable by ClassLoaderExtender(mrSettings.className) {
 
     override fun getClassModifiers(): Array<KModifier> = arrayOf(KModifier.ACTUAL)

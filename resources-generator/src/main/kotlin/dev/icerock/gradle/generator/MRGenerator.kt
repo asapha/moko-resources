@@ -12,18 +12,18 @@ import com.squareup.kotlinpoet.TypeSpec
 import dev.icerock.gradle.MRVisibility
 import dev.icerock.gradle.tasks.GenerateMultiplatformResourcesTask
 import dev.icerock.gradle.toModifier
-import org.gradle.api.Project
 import org.gradle.api.Task
+import org.gradle.api.file.FileTree
 import java.io.File
 
-abstract class MRGenerator(
+abstract class MRGenerator<T : MRGeneratorContext>(
     generatedDir: File,
-    protected val sourceSet: SourceSet,
+    protected val sourceSetName: String,
     protected val mrSettings: MRSettings,
     internal val generators: List<Generator>
 ) {
 
-    internal val outputDir = File(generatedDir, sourceSet.name)
+    internal val outputDir = File(generatedDir, sourceSetName)
     protected open val sourcesGenerationDir
         get() = File(outputDir, "src")
     protected open val resourcesGenerationDir
@@ -32,11 +32,7 @@ abstract class MRGenerator(
     protected open val assetsGenerationDir: File
         get() = File(outputDir, AssetsGenerator.ASSETS_DIR_NAME)
 
-    init {
-        setupGenerationDirs()
-    }
-
-    private fun setupGenerationDirs() {
+    private fun setupGenerationDirs(sourceSet: SourceSet) {
         sourcesGenerationDir.mkdirs()
         sourceSet.addSourceDir(sourcesGenerationDir)
 
@@ -94,8 +90,10 @@ abstract class MRGenerator(
         afterMRGeneration()
     }
 
-    fun apply(project: Project): GenerateMultiplatformResourcesTask {
-        val name = sourceSet.name
+    fun apply(context: T): GenerateMultiplatformResourcesTask = with(context) {
+        setupGenerationDirs(sourceSet)
+
+        val name = sourceSetName
         val genTaskName = "generateMR$name"
         val genTask = runCatching {
             project.tasks.getByName(genTaskName) as GenerateMultiplatformResourcesTask
@@ -103,19 +101,19 @@ abstract class MRGenerator(
             genTaskName,
             GenerateMultiplatformResourcesTask::class.java
         ) {
-            it.generator = this
+            it.generator = this@MRGenerator
         }
 
-        apply(generationTask = genTask, project = project)
+        apply(generationTask = genTask, context = context)
 
-        return genTask
+        genTask
     }
 
     protected open fun beforeMRGeneration() = Unit
     protected open fun afterMRGeneration() = Unit
 
     protected abstract fun getMRClassModifiers(): Array<KModifier>
-    protected abstract fun apply(generationTask: Task, project: Project)
+    protected abstract fun apply(generationTask: Task, context: T)
 
     protected open fun processMRClass(mrClass: TypeSpec.Builder) {}
     protected open fun getImports(): List<ClassName> = emptyList()
@@ -123,7 +121,11 @@ abstract class MRGenerator(
     interface Generator : ObjectBodyExtendable {
         val mrObjectName: String
         val resourceClassName: ClassName
-        val inputFiles: Iterable<File>
+
+        /**
+         * Gradle will observe this file hierarchy in order to run our generation tasks when necessary.
+         */
+        val inputFileTree: FileTree
 
         fun generate(
             assetsGenerationDir: File,

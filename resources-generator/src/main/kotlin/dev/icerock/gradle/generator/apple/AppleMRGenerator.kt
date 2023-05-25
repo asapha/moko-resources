@@ -46,14 +46,13 @@ import kotlin.reflect.full.memberProperties
 @Suppress("TooManyFunctions")
 class AppleMRGenerator(
     generatedDir: File,
-    sourceSet: SourceSet,
+    sourceSetName: String,
     mrSettings: MRSettings,
     generators: List<Generator>,
-    private val compilation: AbstractKotlinNativeCompilation,
     private val baseLocalizationRegion: String
-) : MRGenerator(
+) : MRGenerator<AppleMRGeneratorContext>(
     generatedDir = generatedDir,
-    sourceSet = sourceSet,
+    sourceSetName = sourceSetName,
     mrSettings = mrSettings,
     generators = generators
 ) {
@@ -90,28 +89,27 @@ class AppleMRGenerator(
         ClassName("dev.icerock.moko.resources.utils", "loadableBundle")
     )
 
-    override fun apply(generationTask: Task, project: Project) {
+    override fun apply(generationTask: Task, context: AppleMRGeneratorContext) = with(context) {
         createCopyResourcesToAppTask(project)
-        setupKLibResources(generationTask)
-        setupFrameworkResources()
-        setupTestsResources()
-        setupFatFrameworkTasks()
-
-        dependsOnProcessResources(project, sourceSet, generationTask)
+        setupKLibResources(generationTask, compilation)
+        setupFrameworkResources(compilation)
+        setupTestsResources(compilation)
+        setupFatFrameworkTasks(compilation)
+        dependsOnProcessResources(project, sourceSetName, generationTask)
     }
 
     override fun beforeMRGeneration() {
         assetsDirectory.mkdirs()
     }
 
-    private fun setupKLibResources(generationTask: Task) {
+    private fun setupKLibResources(generationTask: Task, compilation: AbstractKotlinNativeCompilation) {
         val compileTask: KotlinNativeCompile = compilation.compileKotlinTask
         compileTask.dependsOn(generationTask)
 
         // tasks like compileIosMainKotlinMetadata when only one target enabled
         generationTask.project.tasks
             .withType<KotlinCommonCompile>()
-            .matching { it.name.contains(sourceSet.name, ignoreCase = true) }
+            .matching { it.name.contains(sourceSetName, ignoreCase = true) }
             .configureEach { it.dependsOn(generationTask) }
 
         compileTask.doLast(
@@ -124,7 +122,7 @@ class AppleMRGenerator(
         )
     }
 
-    private fun setupFrameworkResources() {
+    private fun setupFrameworkResources(compilation: AbstractKotlinNativeCompilation) {
         val kotlinNativeTarget = compilation.target as KotlinNativeTarget
         val project = kotlinNativeTarget.project
 
@@ -194,7 +192,7 @@ $linkTask produces static framework, Xcode should have Build Phase with copyFram
         }
     }
 
-    private fun setupTestsResources() {
+    private fun setupTestsResources(compilation: AbstractKotlinNativeCompilation) {
         val kotlinNativeTarget = compilation.target as KotlinNativeTarget
 
         kotlinNativeTarget.binaries
@@ -207,7 +205,7 @@ $linkTask produces static framework, Xcode should have Build Phase with copyFram
             }
     }
 
-    private fun setupFatFrameworkTasks() {
+    private fun setupFatFrameworkTasks(compilation: AbstractKotlinNativeCompilation) {
         val kotlinNativeTarget = compilation.target as KotlinNativeTarget
         val project = kotlinNativeTarget.project
 

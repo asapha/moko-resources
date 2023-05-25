@@ -11,13 +11,16 @@ import dev.icerock.gradle.generator.FilesGenerator
 import dev.icerock.gradle.generator.FontsGenerator
 import dev.icerock.gradle.generator.ImagesGenerator
 import dev.icerock.gradle.generator.MRGenerator
+import dev.icerock.gradle.generator.MRGeneratorContext
 import dev.icerock.gradle.generator.PluralsGenerator
 import dev.icerock.gradle.generator.ResourceGeneratorFeature
 import dev.icerock.gradle.generator.SourceInfo
 import dev.icerock.gradle.generator.StringsGenerator
 import dev.icerock.gradle.generator.apple.AppleMRGenerator
+import dev.icerock.gradle.generator.apple.AppleMRGeneratorContext
 import dev.icerock.gradle.generator.common.CommonMRGenerator
 import dev.icerock.gradle.generator.js.JsMRGenerator
+import dev.icerock.gradle.generator.js.JsMRGeneratorContext
 import dev.icerock.gradle.generator.jvm.JvmMRGenerator
 import dev.icerock.gradle.tasks.CopyXCFrameworkResourcesToApp
 import dev.icerock.gradle.tasks.GenerateMultiplatformResourcesTask
@@ -204,12 +207,10 @@ class MultiplatformResourcesPlugin : Plugin<Project> {
         val androidMainSourceSet = androidExtension.sourceSets
             .getByName(SourceSet.MAIN_SOURCE_SET_NAME)
 
+        val namespace = androidExtension.namespace
+        val manifesFile = androidMainSourceSet.manifest.srcFile
         sourceInfo.getAndroidRClassPackage = lambda@{
-            val namespace: String? = androidExtension.namespace
-            if (namespace != null) return@lambda namespace
-
-            val manifestFile = androidMainSourceSet.manifest.srcFile
-            getAndroidPackage(manifestFile)
+            namespace ?: getAndroidPackage(manifesFile)
         }
 
         androidLogic.setup(androidMainSourceSet)
@@ -224,11 +225,16 @@ class MultiplatformResourcesPlugin : Plugin<Project> {
     ): GenerateMultiplatformResourcesTask {
         val commonGeneratorSourceSet: MRGenerator.SourceSet = createSourceSet(commonSourceSet)
         return CommonMRGenerator(
-            generatedDir,
-            commonGeneratorSourceSet,
-            mrSettings,
+            generatedDir = generatedDir,
+            sourceSetName = commonGeneratorSourceSet.name,
+            mrSettings = mrSettings,
             generators = features.map { it.createCommonGenerator() }
-        ).apply(target)
+        ).apply(
+            MRGeneratorContext(
+                project = target,
+                sourceSet = commonGeneratorSourceSet
+            )
+        )
     }
 
     @Suppress("LongParameterList")
@@ -247,12 +253,18 @@ class MultiplatformResourcesPlugin : Plugin<Project> {
             .filter { it.isDependsOn(commonSourceSet) }
 
         kotlinSourceSets.forEach { kotlinSourceSet ->
+            val sourceSet = createSourceSet(kotlinSourceSet)
             JvmMRGenerator(
                 generatedDir = generatedDir,
-                sourceSet = createSourceSet(kotlinSourceSet),
+                sourceSetName = sourceSet.name,
                 mrSettings = mrSettings,
                 generators = features.map { it.createJvmGenerator() }
-            ).apply(target)
+            ).apply(
+                MRGeneratorContext(
+                    project = target,
+                    sourceSet = sourceSet
+                )
+            )
         }
     }
 
@@ -273,13 +285,21 @@ class MultiplatformResourcesPlugin : Plugin<Project> {
             .filter { it.second.isDependsOn(commonSourceSet) }
 
         kotlinSourceSets.forEach { (compilation, kotlinSourceSet) ->
+            val sourceSet = createSourceSet(kotlinSourceSet)
             JsMRGenerator(
-                generatedDir,
-                createSourceSet(kotlinSourceSet),
+                generatedDir = generatedDir,
+                sourceSetName = sourceSet.name,
                 mrSettings = mrSettings,
                 generators = features.map { it.createJsGenerator() },
-                compilation = compilation
-            ).apply(target)
+            ).apply {
+                apply(
+                    JsMRGeneratorContext(
+                        project = target,
+                        sourceSet = sourceSet,
+                        compilation = compilation
+                    )
+                )
+            }
         }
     }
 
@@ -310,12 +330,17 @@ class MultiplatformResourcesPlugin : Plugin<Project> {
             val sourceSet = createSourceSet(depend ?: kss)
             AppleMRGenerator(
                 generatedDir = generatedDir,
-                sourceSet = sourceSet,
+                sourceSetName = sourceSet.name,
                 mrSettings = mrSettings,
                 generators = features.map { it.createIosGenerator() },
-                compilation = compilation,
                 baseLocalizationRegion = iosLocalizationRegion
-            ).apply(target)
+            ).apply(
+                AppleMRGeneratorContext(
+                    project = target,
+                    sourceSet = sourceSet,
+                    compilation = compilation
+                )
+            )
         }
 
         setupCopyXCFrameworkResourcesTask(target)

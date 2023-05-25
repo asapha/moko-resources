@@ -8,26 +8,26 @@ import com.android.build.gradle.tasks.GenerateResValues
 import com.android.build.gradle.tasks.MergeSourceSetFolders
 import com.squareup.kotlinpoet.KModifier
 import dev.icerock.gradle.generator.MRGenerator
-import org.gradle.api.Project
+import dev.icerock.gradle.generator.MRGeneratorContext
 import org.gradle.api.Task
 import org.gradle.kotlin.dsl.withType
 import java.io.File
 
 class AndroidMRGenerator(
     generatedDir: File,
-    sourceSet: SourceSet,
+    sourceSetName: String,
     mrSettings: MRSettings,
     generators: List<Generator>
-) : MRGenerator(
+) : MRGenerator<MRGeneratorContext>(
     generatedDir = generatedDir,
-    sourceSet = sourceSet,
+    sourceSetName = sourceSetName,
     mrSettings = mrSettings,
     generators = generators
 ) {
 
     override fun getMRClassModifiers(): Array<KModifier> = arrayOf(KModifier.ACTUAL)
 
-    override fun apply(generationTask: Task, project: Project) {
+    override fun apply(generationTask: Task, context: MRGeneratorContext) = with(context) {
         project.tasks.withType<GenerateResValues>().configureEach {
             it.dependsOn(generationTask)
         }

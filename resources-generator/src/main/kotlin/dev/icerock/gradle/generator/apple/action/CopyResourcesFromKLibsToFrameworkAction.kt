@@ -16,7 +16,6 @@ internal class CopyResourcesFromKLibsToFrameworkAction : CopyResourcesFromKLibsA
 
         copyResourcesFromLibraries(
             linkTask = task,
-            project = task.project,
             outputDir = framework.outputFile
         )
     }

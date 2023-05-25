@@ -10,8 +10,8 @@ import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.STRING
 import com.squareup.kotlinpoet.TypeSpec
 import dev.icerock.gradle.generator.MRGenerator
+import dev.icerock.gradle.generator.MRGeneratorContext
 import dev.icerock.gradle.utils.dependsOnProcessResources
-import org.gradle.api.Project
 import org.gradle.api.Task
 import org.gradle.jvm.tasks.Jar
 import org.gradle.kotlin.dsl.withType
@@ -20,12 +20,12 @@ import java.io.File
 
 class JvmMRGenerator(
     generatedDir: File,
-    sourceSet: SourceSet,
+    sourceSetName: String,
     mrSettings: MRSettings,
     generators: List<Generator>
-) : MRGenerator(
+) : MRGenerator<MRGeneratorContext>(
     generatedDir = generatedDir,
-    sourceSet = sourceSet,
+    sourceSetName = sourceSetName,
     mrSettings = mrSettings,
     generators = generators
 ) {
@@ -71,7 +71,7 @@ class JvmMRGenerator(
         )
     }
 
-    override fun apply(generationTask: Task, project: Project) {
+    override fun apply(generationTask: Task, context: MRGeneratorContext) = with(context) {
         project.tasks.withType<KotlinCompile>().configureEach {
             it.dependsOn(generationTask)
         }
@@ -79,7 +79,7 @@ class JvmMRGenerator(
             it.exclude("MR/**")
             it.dependsOn(generationTask)
         }
-        dependsOnProcessResources(project, sourceSet, generationTask)
+        dependsOnProcessResources(project, sourceSetName, generationTask)
     }
 
     companion object {

@@ -16,6 +16,7 @@ import dev.icerock.gradle.utils.klibs
 import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.Task
+import org.gradle.api.logging.Logger
 import org.gradle.jvm.tasks.Jar
 import org.gradle.kotlin.dsl.withType
 import org.jetbrains.kotlin.gradle.targets.js.ir.KotlinJsIrCompilation
@@ -26,13 +27,12 @@ import java.io.File
 
 class JsMRGenerator(
     generatedDir: File,
-    sourceSet: SourceSet,
+    sourceSetName: String,
     mrSettings: MRSettings,
     generators: List<Generator>,
-    private val compilation: KotlinJsIrCompilation
-) : MRGenerator(
+) : MRGenerator<JsMRGeneratorContext>(
     generatedDir = generatedDir,
-    sourceSet = sourceSet,
+    sourceSetName = sourceSetName,
     mrSettings = mrSettings,
     generators = generators
 ) {
@@ -83,22 +83,22 @@ class JsMRGenerator(
         }
     }
 
-    override fun apply(generationTask: Task, project: Project) {
+    override fun apply(generationTask: Task, context: JsMRGeneratorContext) = with(context) {
         project.tasks.withType<Kotlin2JsCompile>().configureEach {
             it.dependsOn(generationTask)
         }
-        setupKLibResources(generationTask)
-        setupResources()
+        setupKLibResources(generationTask, compilation)
+        setupResources(project, compilation)
 
         // Declare task ':web-app:generateMRcommonMain' as an input of ':web-app:jsSourcesJar'.
         project.tasks.withType<Jar>().configureEach {
             it.dependsOn(generationTask)
         }
 
-        dependsOnProcessResources(project, sourceSet, generationTask)
+        dependsOnProcessResources(project, sourceSetName, generationTask)
     }
 
-    private fun setupKLibResources(generationTask: Task) {
+    private fun setupKLibResources(generationTask: Task, compilation: KotlinJsIrCompilation) {
         val compileTask: Kotlin2JsCompile = compilation.compileKotlinTask
         compileTask.dependsOn(generationTask)
 
@@ -106,14 +106,16 @@ class JsMRGenerator(
         compileTask.doLast(CopyResourcesToKLibAction(resourcesGenerationDir) as Action<in Task>)
     }
 
-    private fun setupResources() {
+    private fun setupResources(project: Project, compilation: KotlinJsIrCompilation) {
         val kotlinTarget = compilation.target as KotlinJsIrTarget
 
         kotlinTarget.compilations
             .map { it.compileKotlinTask }
             .forEach { compileTask ->
                 @Suppress("UNCHECKED_CAST")
-                compileTask.doLast(CopyResourcesToExecutableAction(resourcesGenerationDir) as Action<in Task>)
+                compileTask.doLast(
+                    CopyResourcesToExecutableAction(project.projectDir, resourcesGenerationDir) as Action<in Task>
+                )
             }
     }
 
@@ -133,25 +135,24 @@ class JsMRGenerator(
     }
 
     class CopyResourcesToExecutableAction(
+        private val projectDir: File,
         private val resourcesGeneratedDir: File
     ) : Action<Kotlin2JsCompile> {
         override fun execute(task: Kotlin2JsCompile) {
-            val project: Project = task.project
-
             task.klibs.forEach { dependency ->
                 copyResourcesFromLibraries(
                     inputFile = dependency,
-                    project = project,
+                    logger = task.logger,
                     outputDir = resourcesGeneratedDir
                 )
             }
 
-            generateWebpackConfig(project, resourcesGeneratedDir)
-            generateKarmaConfig(project)
+            generateWebpackConfig(resourcesGeneratedDir)
+            generateKarmaConfig()
         }
 
-        private fun generateWebpackConfig(project: Project, resourcesOutput: File) {
-            val webpackDir: File = File(project.projectDir, "webpack.config.d")
+        private fun generateWebpackConfig(resourcesOutput: File) {
+            val webpackDir: File = File(projectDir, "webpack.config.d")
             webpackDir.mkdirs()
 
             val webpackConfig: File = File(webpackDir, "moko-resources-generated.js")
@@ -207,8 +208,8 @@ class JsMRGenerator(
             )
         }
 
-        private fun generateKarmaConfig(project: Project) {
-            val webpackDir: File = File(project.projectDir, "karma.config.d")
+        private fun generateKarmaConfig() {
+            val webpackDir: File = File(projectDir, "karma.config.d")
             webpackDir.mkdirs()
 
             val webpackTestConfig: File = File(webpackDir, "moko-resources-generated.js")
@@ -239,13 +240,13 @@ class JsMRGenerator(
 
         private fun copyResourcesFromLibraries(
             inputFile: File,
-            project: Project,
+            logger: Logger,
             outputDir: File
         ) {
             if (inputFile.extension != "klib") return
             if (inputFile.exists().not()) return
 
-            project.logger.info("copy resources from $inputFile into $outputDir")
+            logger.info("copy resources from $inputFile into $outputDir")
             val klibKonan = org.jetbrains.kotlin.konan.file.File(inputFile.path)
             val klib = KotlinLibraryLayoutImpl(klib = klibKonan, component = "default")
             val layout = klib.extractingToTemp
@@ -256,9 +257,9 @@ class JsMRGenerator(
                     overwrite = true
                 )
             } catch (@Suppress("SwallowedException") exc: kotlin.io.NoSuchFileException) {
-                project.logger.info("resources in $inputFile not found")
+                logger.info("resources in $inputFile not found")
             } catch (@Suppress("SwallowedException") exc: java.nio.file.NoSuchFileException) {
-                project.logger.info("resources in $inputFile not found (empty lib)")
+                logger.info("resources in $inputFile not found (empty lib)")
             }
         }
     }

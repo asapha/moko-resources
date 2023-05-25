@@ -14,14 +14,14 @@ import dev.icerock.gradle.generator.apple.AppleAssetsGenerator
 import dev.icerock.gradle.generator.common.CommonAssetsGenerator
 import dev.icerock.gradle.generator.js.JsAssetsGenerator
 import dev.icerock.gradle.generator.jvm.JvmAssetsGenerator
-import org.gradle.api.file.SourceDirectorySet
+import org.gradle.api.file.FileTree
 import java.io.File
 
 @Suppress("TooManyFunctions")
 abstract class AssetsGenerator(
-    private val sourceDirectorySet: SourceDirectorySet
+    override val inputFileTree: FileTree,
+    private val resFolders: Set<File>,
 ) : MRGenerator.Generator {
-    override val inputFiles: Iterable<File> = sourceDirectorySet.files
     override val mrObjectName: String = ASSETS_DIR_NAME
     override val resourceClassName = ClassName("dev.icerock.moko.resources", "AssetResource")
 
@@ -89,7 +89,7 @@ abstract class AssetsGenerator(
         resourcesGenerationDir: File,
         objectBuilder: TypeSpec.Builder
     ): TypeSpec {
-        val rootContent = parseRootContent(sourceDirectorySet.sourceDirectories.files)
+        val rootContent = parseRootContent(resFolders)
 
         beforeGenerate(objectBuilder, rootContent)
 
@@ -173,25 +173,39 @@ abstract class AssetsGenerator(
     ) : AssetSpec()
 
     class Feature(
-        private val info: SourceInfo,
+        info: SourceInfo,
         private val mrSettings: MRGenerator.MRSettings
     ) : ResourceGeneratorFeature<AssetsGenerator> {
 
-        override fun createCommonGenerator() = CommonAssetsGenerator(info.commonResources)
+        private val fileTree = info.commonResources.matching { it.include("MR/assets/**") }
+        private val resFolders = info.commonResources.sourceDirectories.files
 
-        override fun createIosGenerator() = AppleAssetsGenerator(info.commonResources)
+        override fun createCommonGenerator() =
+            CommonAssetsGenerator(
+                fileTree,
+                resFolders
+            )
+
+        override fun createIosGenerator() =
+            AppleAssetsGenerator(
+                fileTree,
+                resFolders
+            )
 
         override fun createAndroidGenerator() = AndroidAssetsGenerator(
-            info.commonResources
+            fileTree,
+            resFolders
         )
 
         override fun createJvmGenerator() = JvmAssetsGenerator(
-            info.commonResources,
+            fileTree,
+            resFolders,
             mrSettings
         )
 
         override fun createJsGenerator(): AssetsGenerator = JsAssetsGenerator(
-            info.commonResources
+            fileTree,
+            resFolders
         )
     }
 

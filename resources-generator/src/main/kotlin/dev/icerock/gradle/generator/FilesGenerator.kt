@@ -18,10 +18,9 @@ import org.gradle.api.file.FileTree
 import java.io.File
 
 abstract class FilesGenerator(
-    private val inputFileTree: FileTree
+    override val inputFileTree: FileTree
 ) : MRGenerator.Generator {
 
-    override val inputFiles: Iterable<File> get() = inputFileTree.files
     override val resourceClassName = ClassName("dev.icerock.moko.resources", "FileResource")
     override val mrObjectName: String = "files"
 

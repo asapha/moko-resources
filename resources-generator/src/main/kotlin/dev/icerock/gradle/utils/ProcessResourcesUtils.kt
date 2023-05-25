@@ -4,13 +4,12 @@
 
 package dev.icerock.gradle.utils
 
-import dev.icerock.gradle.generator.MRGenerator
 import org.gradle.api.Project
 import org.gradle.api.Task
 
-fun dependsOnProcessResources(project: Project, sourceSet: MRGenerator.SourceSet, task: Task) {
+fun dependsOnProcessResources(project: Project, sourceSetName: String, task: Task) {
     project.tasks
-        .matching { it.name == sourceSet.name.removeSuffix("Main") + "ProcessResources" }
+        .matching { it.name == sourceSetName.removeSuffix("Main") + "ProcessResources" }
         .configureEach {
             it.dependsOn(task)
         }

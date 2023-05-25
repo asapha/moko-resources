@@ -16,7 +16,6 @@ internal class CopyResourcesFromKLibsToExecutableAction : CopyResourcesFromKLibs
 
         copyResourcesFromLibraries(
             linkTask = task,
-            project = task.project,
             outputDir = executable.outputDirectory
         )
     }

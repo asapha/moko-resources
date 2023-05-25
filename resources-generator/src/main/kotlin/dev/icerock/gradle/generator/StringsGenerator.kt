@@ -22,7 +22,7 @@ abstract class StringsGenerator(
     private val strictLineBreaks: Boolean
 ) : BaseGenerator<String>() {
 
-    override val inputFiles: Iterable<File> get() = stringsFileTree.files
+    override val inputFileTree: FileTree get() = stringsFileTree
     override val resourceClassName = ClassName("dev.icerock.moko.resources", "StringResource")
     override val mrObjectName: String = "strings"
 

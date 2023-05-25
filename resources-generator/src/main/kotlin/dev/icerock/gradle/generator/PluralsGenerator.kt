@@ -32,7 +32,7 @@ abstract class PluralsGenerator(
     private val strictLineBreaks: Boolean
 ) : BaseGenerator<PluralMap>() {
 
-    override val inputFiles: Iterable<File> get() = pluralsFileTree.files
+    override val inputFileTree: FileTree get() = pluralsFileTree
     override val resourceClassName = ClassName("dev.icerock.moko.resources", "PluralsResource")
     override val mrObjectName: String = "plurals"
 
