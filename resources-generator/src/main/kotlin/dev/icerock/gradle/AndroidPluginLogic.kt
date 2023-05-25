@@ -56,6 +56,7 @@ internal class AndroidPluginLogic(
     }
 
     private fun setAssetsDirsRefresh() {
+        // TODO: How to make this compatible with configuration cache? Is it still necessary with newer AGP versions?
         // without this code Android Gradle Plugin not copy assets to aar
         project.tasks
             .matching { it.name.startsWith("package") && it.name.endsWith("Assets") }

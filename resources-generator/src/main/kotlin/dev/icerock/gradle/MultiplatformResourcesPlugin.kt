@@ -208,6 +208,8 @@ class MultiplatformResourcesPlugin : Plugin<Project> {
             .getByName(SourceSet.MAIN_SOURCE_SET_NAME)
 
         val namespace = androidExtension.namespace
+        // TODO: If the user change the namespace in the manifest file, and, the configuration's cached, our tasks
+        // won't be called, I think.
         val manifesFile = androidMainSourceSet.manifest.srcFile
         sourceInfo.getAndroidRClassPackage = lambda@{
             namespace ?: getAndroidPackage(manifesFile)
